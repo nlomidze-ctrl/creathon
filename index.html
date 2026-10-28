@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://api.anthropic.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src https://api.anthropic.com; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>Media Manipulation Signal Analyzer</title>
   <meta name="description" content="Truth in the Age of AI — an educational tool for spotting observable manipulation signals in news, posts and transcripts. Think before you share.">
@@ -42,6 +42,19 @@
     <p class="hero-q">What potential manipulation signals can we observe in this content?</p>
     <p class="hero-sub">Paste a news article, viral post, caption, speech or transcript. The analyzer checks it against the 20 indicators of the <strong>PSYOPS Identification Tool V8.3</strong> and shows its evidence. <span class="tagline">Think before you share.</span></p>
   </section>
+
+  <nav class="modes wrap" aria-label="Tools">
+    <div class="mode-tabs" role="tablist">
+      <button type="button" class="mode-tab active" role="tab" aria-selected="true" aria-controls="workspace" data-mode="text" id="tabText">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 11h14M5 16h9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>
+        Text signal analyzer
+      </button>
+      <button type="button" class="mode-tab" role="tab" aria-selected="false" aria-controls="videoLab" data-mode="video" id="tabVideo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 10l5-3v10l-5-3z" fill="currentColor"/></svg>
+        Video verification lab
+      </button>
+    </div>
+  </nav>
 
   <main id="workspace" class="wrap">
     <!-- ============ INPUT ============ -->
@@ -217,12 +230,12 @@
       <div class="panel sheet" id="sheetPanel">
         <div class="panel-head">
           <div>
-            <h3 class="card-title">PSYOPS Identification Tool V8.3 · scoring checklist</h3>
-            <p class="hint sheet-hint">The original worksheet, prefilled with the analyzer's scores. Change any row after class discussion; the total updates as you go.</p>
+            <h3 class="card-title">Scoring worksheet · PSYOPS V8.3, Creathon edition</h3>
+            <p class="hint sheet-hint">The 20 indicators regrouped into five themes, with clearer questions and modern examples. Prefilled by the analyzer: discuss, change any score, add evidence notes. Totals update as you go.</p>
           </div>
           <button type="button" class="btn small" id="sheetReset">Reset to analyzer scores</button>
         </div>
-        <div class="sheet-table" id="sheetTable" role="table" aria-label="PSYOPS Identification Tool V8.3 scoring checklist"></div>
+        <div class="sheet-table" id="sheetTable" role="table" aria-label="Scoring worksheet"></div>
         <div class="sheet-total" id="sheetTotal"></div>
       </div>
 
@@ -243,6 +256,86 @@
       </div>
     </section>
   </main>
+
+  <!-- ============ VIDEO VERIFICATION LAB ============ -->
+  <section id="videoLab" class="wrap video-lab" hidden aria-labelledby="videoTitle">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="videoTitle">Video verification lab</h2>
+        <span class="hint">The video stays on this device. Nothing is uploaded unless you use the optional AI frame check.</span>
+      </div>
+      <p class="lab-honest"><strong>No tool can reliably tell you "this video is AI" on its own.</strong> This lab helps you check a video the way fact-checkers exposed the viral WWIII clip: find older copies, compare with real events, and inspect it for AI or 3D CGI warning signs.</p>
+
+      <label class="drop" id="videoDrop" for="videoFile">
+        <input type="file" id="videoFile" accept="video/*">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0l-5 5m5-5l5 5M4 20h16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="drop-t">Drop a video here or click to choose a file</span>
+        <span class="drop-s">MP4 or WebM works best · up to 500 MB</span>
+      </label>
+      <p class="lab-error" id="videoError" role="alert" hidden></p>
+
+      <div class="lab-main" id="labMain" hidden>
+        <div class="lab-player">
+          <video id="videoPlayer" controls playsinline preload="auto"></video>
+          <dl class="file-info" id="fileInfo"></dl>
+        </div>
+        <div class="lab-steps">
+          <h3 class="card-title">Step 1 · Origin &amp; reverse archive check</h3>
+          <p class="hint">Download a key frame, then upload it to a reverse image search to look for older copies. The WWIII clip turned up on YouTube from 2021.</p>
+          <div class="search-links">
+            <a class="btn small" href="https://lens.google.com/" target="_blank" rel="noopener noreferrer">Google Lens ↗</a>
+            <a class="btn small" href="https://tineye.com/" target="_blank" rel="noopener noreferrer">TinEye ↗</a>
+            <a class="btn small" href="https://www.bing.com/visualsearch" target="_blank" rel="noopener noreferrer">Bing Visual Search ↗</a>
+            <a class="btn small" href="https://yandex.com/images/" target="_blank" rel="noopener noreferrer">Yandex Images ↗</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="framesPanel" hidden>
+      <div class="panel-head">
+        <h3 class="card-title">Key frames</h3>
+        <span class="hint" id="framesHint">Click a frame to zoom in and look for artefacts.</span>
+      </div>
+      <div class="frames" id="frames"></div>
+    </div>
+
+    <div class="panel" id="aiFramePanel" hidden>
+      <div class="panel-head">
+        <h3 class="card-title">Optional AI frame check</h3>
+        <span class="hint">Sends up to 6 key frames to Claude with your own API key. It describes clues; it is not a verdict.</span>
+      </div>
+      <div class="ai-frame-row">
+        <input id="videoAiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Anthropic API key (sk-ant-…), kept in memory only" aria-label="Anthropic API key">
+        <button type="button" class="btn accent" id="aiFrameBtn">Describe visual clues</button>
+      </div>
+      <div id="aiFrameOut" class="ai-frame-out" aria-live="polite"></div>
+    </div>
+
+    <div class="panel" id="cgiPanel">
+      <div class="panel-head">
+        <div>
+          <h3 class="card-title">Steps 2 &amp; 3 · Ground-truth and AI / 3D CGI warning signs</h3>
+          <p class="hint sheet-hint">Answer each question after watching the video and checking reliable sources. You can use this checklist even without a video file.</p>
+        </div>
+        <div class="seg-group">
+          <button type="button" class="seg" id="cgiCase">Load WWIII case answers</button>
+          <button type="button" class="seg" id="cgiReset">Reset</button>
+        </div>
+      </div>
+      <div class="cgi-list" id="cgiList"></div>
+      <div class="cgi-result" id="cgiResult"></div>
+      <div class="lab-actions">
+        <button type="button" class="btn small" id="cgiCopy">Copy lab notes</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Frame zoom">
+    <button type="button" class="lb-close" id="lbClose" aria-label="Close">×</button>
+    <img id="lbImg" alt="">
+    <p class="lb-cap" id="lbCap"></p>
+  </div>
 
   <footer class="footer">
     <div class="wrap">
@@ -274,5 +367,6 @@
   <script src="js/ai.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/video.js"></script>
 </body>
 </html>

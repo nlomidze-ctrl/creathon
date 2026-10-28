@@ -23,7 +23,8 @@ It is a plain static site: no build step, no dependencies, no server. It works o
 | 20-indicator chart | Horizontal bars on a 1–5 scale. Rows that cannot be assessed show **N/A: Context Needed**. You can sort and filter the rows, and hovering shows a tooltip. |
 | Distribution | A donut and a stacked bar showing weak, moderate, strong and N/A counts. |
 | Findings & missing context | Expandable cards for all 20 indicators, plus a panel that explains how to investigate each indicator that can't be judged from the text alone. |
-| PSYOPS V8.3 scoring checklist | The original worksheet (Category / Question / Example / Score 1–5), prefilled with the analyzer's scores. The class can adjust each row, and the total updates. N/A rows are left out of the total, never counted as 0. |
+| Scoring worksheet (Creathon edition) | A reworked version of the PSYOPS V8.3 sheet. The 20 indicators are grouped into five themes, each with a subtotal: Emotion & urgency, Story & framing, Evidence & authority, Us vs. them, and Context & motive. Each row has a plain-language question with the original wording underneath, a modern example, "look for" hints and an optional evidence note. A 1–5 scoring guide is included. Rows are prefilled by the analyzer and can be edited, and N/A is never counted as 0. Three AI-era add-ons (recycled media, AI/3D CGI, untraceable source) are scored separately. |
+| Video verification lab | You load a video locally, and it is never uploaded. The lab shows file details and extracts 8 key frames, which you can zoom into or download for reverse image search (links to Google Lens, TinEye, Bing and Yandex). An 11-question ground-truth and AI/CGI warning-sign checklist comes with the WWIII case answers. An optional AI frame check sends up to 6 frames to Claude with your own key and describes clues, never giving a verdict. |
 | Before You Share | The 3-step verification companion (origin check, ground truth, AI/CGI). The WWIII case has a reveal that shows how fact-checkers exposed the 2021 Blender video. |
 | Questions to ask next | Critical-thinking prompts chosen from the highest-scoring indicators and the ones that couldn't be assessed. |
 | Export | **Copy Structured Report** copies a Markdown report. **Print / Save as PDF** uses clean `@media print` styles. |
@@ -37,6 +38,7 @@ js/framework.js     the 20 V8.3 indicators: verbatim names, questions, examples,
 js/engine.js        deterministic heuristic engine (offline), summary and index maths
 js/ai.js            optional AI-assisted engine (Claude API, bring your own key)
 js/presets.js       the three workshop presets
+js/video.js         video verification lab (local frames, warning-sign checklist, optional AI clues)
 js/dashboard.js     visualisation layer (gauge, highlighter, bars, donut, cards, checklist, Markdown)
 js/app.js           controller that wires input, engines and dashboard together
 tests/              node tests for the engine contract

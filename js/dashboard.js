@@ -376,73 +376,162 @@
     });
   }
 
-  // ---------- PSYOPS V8.3 scoring checklist (the original worksheet) ----------
+  // ---------- Reworked PSYOPS V8.3 worksheet (Creathon edition) ----------
 
-  // Score ranges printed on the worksheet. The sheet words them as PSYOP likelihood; a checklist
+  // Score ranges from the original worksheet. It words them as PSYOP likelihood; a checklist
   // total cannot establish that, so the app shows them as signal levels.
   var SHEET_RANGES = [
     { min: 0, max: 25, label: "Few observable signals", color: "#10B981" },
-    { min: 26, max: 50, label: "Some signals \u2014 look deeper", color: "#FACC15" },
+    { min: 26, max: 50, label: "Some signals — look deeper", color: "#FACC15" },
     { min: 51, max: 75, label: "Several notable signals", color: "#F97316" },
     { min: 76, max: 100, label: "Many strong signals", color: "#EF4444" }
   ];
 
-  function sheetTotals(scores) {
-    var vals = Object.keys(scores).map(function (k) { return scores[k]; }).filter(function (v) { return typeof v === "number"; });
+  // sheet = { scores: {1..20: n|null}, notes: {id: text}, addons: {A1..A3: n|null} }
+  function sheetTotals(sheet) {
+    var scores = sheet.scores || sheet;
+    var vals = fw.INDICATORS.map(function (d) { return scores[d.id]; }).filter(function (v) { return typeof v === "number"; });
     var sum = vals.reduce(function (a, v) { return a + v; }, 0);
     var projected = vals.length ? Math.round(sum / vals.length * 20) : null;
     var range = projected == null ? null : SHEET_RANGES.filter(function (r) { return projected >= r.min && projected <= r.max; })[0];
-    return { sum: sum, scored: vals.length, projected: projected, range: range };
+    var groups = fw.GROUPS.map(function (g) {
+      var gv = g.ids.map(function (id) { return scores[id]; }).filter(function (v) { return typeof v === "number"; });
+      var gs = gv.reduce(function (a, v) { return a + v; }, 0);
+      return { group: g, sum: gs, scored: gv.length, avg: gv.length ? gs / gv.length : null };
+    });
+    var add = sheet.addons || {};
+    var av = fw.ADDONS.map(function (x) { return add[x.id]; }).filter(function (v) { return typeof v === "number"; });
+    return { sum: sum, scored: vals.length, projected: projected, range: range, groups: groups,
+      addonSum: av.reduce(function (a, v) { return a + v; }, 0), addonScored: av.length, addonFlags: av.filter(function (v) { return v >= 3; }).length };
   }
 
-  function renderSheet(tableEl, totalEl, result, scores, onChange) {
+  function scorePicker(label, cur, onPick) {
+    var picker = h("div", { class: "sheet-pick", role: "radiogroup", "aria-label": label });
+    [1, 2, 3, 4, 5, null].forEach(function (v) {
+      var on = cur === v;
+      var guide = v == null ? null : fw.SCORE_GUIDE[v - 1];
+      var b = h("button", { type: "button", role: "radio", "aria-checked": on ? "true" : "false", class: "sp" + (on ? " on" : "") + (v == null ? " sp-na" : ""),
+        title: v == null ? "N/A — can't judge without outside evidence" : v + " — " + guide.label + ": " + guide.hint, text: v == null ? "N/A" : String(v) });
+      if (on) b.style.setProperty("--c", scoreColor(v));
+      b.addEventListener("click", function () { onPick(v); });
+      picker.appendChild(b);
+    });
+    return picker;
+  }
+
+  function sheetItem(opts) {
+    var noteId = "note-" + opts.key;
+    var note = h("input", { type: "text", id: noteId, class: "sheet-note", maxlength: "300", placeholder: "Evidence or note (optional)", autocomplete: "off", "aria-label": "Evidence note for " + opts.name });
+    note.value = opts.note || "";
+    note.addEventListener("input", function () { opts.onNote(note.value); });
+    return h("div", { class: "ws-item" + (opts.changed ? " changed" : ""), role: "listitem" }, [
+      h("div", { class: "ws-main" }, [
+        h("p", { class: "ws-title" }, [h("span", { class: "card-id", text: String(opts.num) }), h("b", { text: opts.name })]),
+        h("p", { class: "ws-q", text: opts.plain }),
+        opts.original ? h("p", { class: "ws-orig" }, [h("span", { class: "lbl-inline", text: "V8.3 original" }), "“" + opts.original + "”"]) : null,
+        h("p", { class: "ws-ex" }, [h("span", { class: "lbl-inline", text: "Example" }), opts.modern]),
+        h("p", { class: "ws-look" }, [h("span", { class: "lbl-inline", text: "Look for" }), opts.lookFor])
+      ]),
+      h("div", { class: "ws-side" }, [
+        scorePicker(opts.name + " score", opts.cur, opts.onPick),
+        h("small", { class: "sheet-eng", text: opts.engText }),
+        note
+      ])
+    ]);
+  }
+
+  function renderSheet(tableEl, totalEl, result, sheet, onChange) {
     clear(tableEl);
     var engineScores = {};
     result.indicators.forEach(function (f) { engineScores[f.id] = f.score; });
-    tableEl.appendChild(h("div", { class: "sheet-row sheet-headrow", role: "row" }, ["Category", "Question", "Example", "Score (1\u20135)"].map(function (t) {
-      return h("span", { role: "columnheader", text: t });
-    })));
-    fw.INDICATORS.forEach(function (d) {
-      var cur = scores[d.id];
-      var picker = h("div", { class: "sheet-pick", role: "radiogroup", "aria-label": d.name + " score" });
-      [1, 2, 3, 4, 5, null].forEach(function (v) {
-        var on = cur === v;
-        var b = h("button", { type: "button", role: "radio", "aria-checked": on ? "true" : "false", class: "sp" + (on ? " on" : "") + (v == null ? " sp-na" : ""),
-          title: v == null ? "Cannot assess (N/A)" : v + " \u2014 " + SCORE_WORDS[v], text: v == null ? "N/A" : String(v) });
-        if (on) b.style.setProperty("--c", scoreColor(v));
-        b.addEventListener("click", function () { onChange(d.id, v); });
-        picker.appendChild(b);
+    var t = sheetTotals(sheet);
+
+    tableEl.appendChild(h("div", { class: "score-guide", "aria-label": "Scoring guide" },
+      [h("span", { class: "sg-k", text: "Scoring guide" })].concat(fw.SCORE_GUIDE.map(function (g) {
+        var b = h("span", { class: "sg-n", text: String(g.score) }); b.style.background = scoreColor(g.score);
+        return h("span", { class: "sg-item" }, [b, h("span", null, [h("b", { text: g.label }), " · " + g.hint])]);
+      })).concat([h("span", { class: "sg-item" }, [h("span", { class: "sg-n na", text: "N/A" }), h("span", { text: "Needs outside evidence: not counted as 0" })])])));
+
+    var num = 0;
+    fw.GROUPS.forEach(function (g, gi) {
+      var gt = t.groups[gi];
+      var head = h("div", { class: "ws-group-head" }, [
+        h("span", { class: "ws-dot" }),
+        h("div", null, [h("p", { class: "ws-gname", text: g.name }), h("p", { class: "ws-gblurb", text: g.blurb })]),
+        h("span", { class: "ws-gscore", text: gt.scored ? gt.sum + " / " + (gt.scored * 5) : "N/A" })
+      ]);
+      var list = h("div", { class: "ws-list", role: "list" });
+      g.ids.forEach(function (id) {
+        num++;
+        var d = fw.INDICATORS[id - 1], w = fw.WORKSHEET[id];
+        var cur = sheet.scores[id], eng = engineScores[id];
+        var changed = cur !== eng;
+        list.appendChild(sheetItem({
+          key: id, num: id, name: d.name, plain: w.plain, original: d.guidingQuestion, modern: w.modern, lookFor: w.lookFor,
+          cur: cur, changed: changed, note: sheet.notes[id],
+          engText: changed ? "Analyzer: " + (eng == null ? "N/A" : eng) + " · edited by you" : "Prefilled by the analyzer",
+          onPick: function (v) { onChange("score", id, v); },
+          onNote: function (v) { onChange("note", id, v); }
+        }));
       });
-      var eng = engineScores[d.id];
-      var changed = cur !== eng;
-      tableEl.appendChild(h("div", { class: "sheet-row" + (changed ? " changed" : ""), role: "row" }, [
-        h("span", { class: "sheet-cat", role: "cell" }, [h("b", { text: d.id + ". " + d.name })]),
-        h("span", { class: "sheet-q", role: "cell", text: d.guidingQuestion }),
-        h("span", { class: "sheet-ex", role: "cell", text: d.example }),
-        h("span", { class: "sheet-score", role: "cell" }, [picker, h("small", { class: "sheet-eng", text: changed ? "Analyzer: " + (eng == null ? "N/A" : eng) + " \u00b7 edited" : "Analyzer score" })])
-      ]));
+      var sec = h("section", { class: "ws-group" }, [head, list]);
+      sec.style.setProperty("--g", g.color);
+      tableEl.appendChild(sec);
     });
 
+    var addList = h("div", { class: "ws-list", role: "list" });
+    fw.ADDONS.forEach(function (x) {
+      addList.appendChild(sheetItem({
+        key: x.id, num: x.id, name: x.name, plain: x.plain, modern: x.modern, lookFor: x.lookFor,
+        cur: sheet.addons[x.id], changed: false, note: sheet.notes[x.id],
+        engText: "Score this yourself after checking the media",
+        onPick: function (v) { onChange("addon", x.id, v); },
+        onNote: function (v) { onChange("note", x.id, v); }
+      }));
+    });
+    var addSec = h("section", { class: "ws-group addon" }, [
+      h("div", { class: "ws-group-head" }, [
+        h("span", { class: "ws-dot" }),
+        h("div", null, [h("p", { class: "ws-gname", text: "AI-era add-ons (Creathon)" }), h("p", { class: "ws-gblurb", text: "Extra checks for photos and videos. Kept separate so the 20-item total still matches the original tool." })]),
+        h("span", { class: "ws-gscore", text: t.addonScored ? t.addonSum + " / " + (t.addonScored * 5) : "Not scored" })
+      ]), addList
+    ]);
+    addSec.style.setProperty("--g", "#FACC15");
+    tableEl.appendChild(addSec);
+
+    renderSheetTotal(totalEl, t);
+    return t;
+  }
+
+  function renderSheetTotal(totalEl, t) {
     clear(totalEl);
-    var t = sheetTotals(scores);
     var main = h("div", { class: "st-main" }, [
-      h("p", { class: "st-k", text: "Add up your total score" }),
-      h("p", { class: "st-v" }, [h("b", { text: String(t.sum) }), h("span", { text: " / " + (t.scored * 5) + " from " + t.scored + " scored item" + (t.scored === 1 ? "" : "s") })]),
-      t.scored < 20 && t.scored ? h("p", { class: "st-proj", text: "Projected to all 20 items: " + t.projected + " / 100 (" + (20 - t.scored) + (20 - t.scored === 1 ? " item marked N/A is" : " items marked N/A are") + " left out, not counted as 0)." }) : null,
-      !t.scored ? h("p", { class: "st-proj", text: "No items scored yet." }) : null
+      h("p", { class: "st-k", text: "Total score (20 indicators)" }),
+      h("p", { class: "st-v" }, [h("b", { text: String(t.sum) }), h("span", { text: " / " + (t.scored * 5) + " from " + t.scored + " scored" })]),
+      t.scored < 20 && t.scored ? h("p", { class: "st-proj", text: "Projected to all 20: " + t.projected + " / 100 (" + (20 - t.scored) + (20 - t.scored === 1 ? " item marked N/A is" : " items marked N/A are") + " left out, not counted as 0)." }) : null,
+      !t.scored ? h("p", { class: "st-proj", text: "No items scored yet." }) : null,
+      h("div", { class: "st-groups" }, t.groups.map(function (gt) {
+        var fill = h("span", { class: "stg-fill" });
+        fill.style.width = gt.avg == null ? "0%" : (gt.avg / 5 * 100) + "%";
+        fill.style.background = gt.group.color;
+        return h("div", { class: "stg" }, [
+          h("span", { class: "stg-name", text: gt.group.name }),
+          h("span", { class: "stg-track" }, [fill]),
+          h("span", { class: "stg-v", text: gt.avg == null ? "N/A" : gt.avg.toFixed(1) })
+        ]);
+      })),
+      t.addonScored ? h("p", { class: "st-proj", text: "AI-era add-ons: " + t.addonFlags + " of " + t.addonScored + " scored 3 or higher (shown separately)." }) : null
     ]);
     var ranges = h("ul", { class: "st-ranges" }, SHEET_RANGES.map(function (r) {
-      var on = t.range === r;
-      var li = h("li", { class: on ? "on" : null }, [h("span", { class: "st-r", text: r.min + "\u2013" + r.max }), h("span", { text: r.label })]);
+      var li = h("li", { class: t.range === r ? "on" : null }, [h("span", { class: "st-r", text: r.min + "–" + r.max }), h("span", { text: r.label })]);
       li.style.setProperty("--c", r.color);
       return li;
     }));
     totalEl.appendChild(main);
     totalEl.appendChild(h("div", { class: "st-side" }, [
-      h("p", { class: "st-k", text: "Score ranges from the worksheet" }), ranges,
-      h("p", { class: "st-note", text: "The printed worksheet labels these ranges as PSYOP likelihood. A checklist total cannot establish that, so they are shown here as signal levels." })
+      h("p", { class: "st-k", text: "Score ranges" }), ranges,
+      h("p", { class: "st-note", text: "The original worksheet labels these ranges as PSYOP likelihood. A checklist total cannot establish that, so they are shown here as signal levels. The theme bars show where the signals cluster." })
     ]));
-    return t;
   }
 
   // ---------- Compare column ----------
@@ -504,15 +593,26 @@
     });
     if (sheet) {
       var t = sheetTotals(sheet);
-      var edited = result.indicators.filter(function (f) { return sheet[f.id] !== f.score; });
-      L.push("## PSYOPS Identification Tool V8.3 \u2014 scoring checklist");
+      L.push("## Scoring worksheet (PSYOPS V8.3, Creathon edition)");
       L.push("");
-      L.push("| Category | Score |" );
-      L.push("|---|---|");
-      fw.INDICATORS.forEach(function (d) { L.push("| " + d.id + ". " + d.name + " | " + (sheet[d.id] == null ? "N/A" : sheet[d.id]) + " |"); });
+      fw.GROUPS.forEach(function (g, gi) {
+        var gt = t.groups[gi];
+        L.push("### " + g.name + (gt.scored ? " — " + gt.sum + " / " + (gt.scored * 5) : ""));
+        L.push("");
+        g.ids.forEach(function (id) {
+          var sc = sheet.scores[id], nt = sheet.notes[id];
+          L.push("- **" + id + ". " + fw.INDICATORS[id - 1].name + ":** " + (sc == null ? "N/A" : sc + "/5") + (nt ? " — " + nt : ""));
+        });
+        L.push("");
+      });
+      L.push("**Total:** " + t.sum + " / " + (t.scored * 5) + " from " + t.scored + " scored" + (t.scored < 20 && t.scored ? " (projected to 20: " + t.projected + " / 100)" : "") + (t.range ? " — " + t.range.label : ""));
       L.push("");
-      L.push("**Total:** " + t.sum + " / " + (t.scored * 5) + " from " + t.scored + " scored items" + (t.scored < 20 && t.scored ? " (projected to 20 items: " + t.projected + " / 100)" : "") + (t.range ? " \u2014 " + t.range.label : ""));
-      if (edited.length) L.push("", "_Edited by the reviewer: " + edited.map(function (f) { return f.name; }).join(", ") + "._");
+      L.push("### AI-era add-ons");
+      L.push("");
+      fw.ADDONS.forEach(function (x) {
+        var sc = sheet.addons[x.id], nt = sheet.notes[x.id];
+        L.push("- **" + x.name + ":** " + (sc == null ? "not scored" : sc + "/5") + (nt ? " — " + nt : ""));
+      });
       L.push("");
     }
     L.push("## Questions to ask next");

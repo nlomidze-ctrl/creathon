@@ -24,7 +24,7 @@
     filter: "all",
     busy: false,
     verify: {},
-    sheet: {}
+    sheet: { scores: {}, notes: {}, addons: {} }
   };
 
   // ---------- static text ----------
@@ -245,11 +245,22 @@
 
   // ---------- PSYOPS V8.3 scoring checklist ----------
   function resetSheet() {
-    state.sheet = {};
-    if (state.result) state.result.indicators.forEach(function (f) { state.sheet[f.id] = f.score; });
+    state.sheet = { scores: {}, notes: {}, addons: {} };
+    if (state.result) state.result.indicators.forEach(function (f) { state.sheet.scores[f.id] = f.score; });
+    MSA.framework.ADDONS.forEach(function (x) { state.sheet.addons[x.id] = null; });
+    // The WWIII case study comes with documented fact-check findings for the media add-ons.
+    if (state.presetKey === "wwiii") {
+      state.sheet.addons.A1 = 5; state.sheet.notes.A1 = "An older version was found on YouTube, created in 2021.";
+      state.sheet.addons.A2 = 5; state.sheet.notes.A2 = "The video was created using Blender, a 3D computer graphics software.";
+    }
   }
   function renderSheet() {
-    D.renderSheet($("sheetTable"), $("sheetTotal"), state.result, state.sheet, function (id, v) { state.sheet[id] = v; renderSheet(); });
+    D.renderSheet($("sheetTable"), $("sheetTotal"), state.result, state.sheet, function (kind, id, v) {
+      if (kind === "note") { state.sheet.notes[id] = v; return; }
+      if (kind === "addon") state.sheet.addons[id] = v;
+      else state.sheet.scores[id] = v;
+      renderSheet();
+    });
   }
   $("sheetReset").addEventListener("click", function () { resetSheet(); renderSheet(); });
 

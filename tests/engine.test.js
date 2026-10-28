@@ -66,3 +66,10 @@ test("markup in input is kept as plain text, never interpreted", () => {
   const r = engine.analyze({ text: "<img src=x onerror=alert(1)> BREAKING: share this everywhere right now before they take it down!" });
   assert.ok(r.text.includes("<img"));
 });
+
+test("reworked worksheet covers every indicator exactly once", () => {
+  const ids = fw.GROUPS.flatMap((g) => g.ids).sort((a, b) => a - b);
+  assert.deepStrictEqual(ids, fw.INDICATORS.map((d) => d.id));
+  fw.INDICATORS.forEach((d) => assert.ok(fw.WORKSHEET[d.id].plain && fw.WORKSHEET[d.id].modern && fw.WORKSHEET[d.id].lookFor));
+  assert.strictEqual(fw.SCORE_GUIDE.length, 5);
+});
