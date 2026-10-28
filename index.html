@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://api.anthropic.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Media Manipulation Signal Analyzer</title>
+  <meta name="description" content="Truth in the Age of AI — an educational tool for spotting observable manipulation signals in news, posts and transcripts. Think before you share.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230B0F19'/%3E%3Cpath d='M6 22a10 10 0 0 1 20 0' fill='none' stroke='%23FACC15' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M16 22l5-7' stroke='%23fff' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip" href="#workspace">Skip to analyzer</a>
+
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M5 23a11 11 0 0 1 22 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M16 23l6-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="16" cy="23" r="2.2" fill="#fff"/></svg>
+        <div>
+          <p class="eyebrow">Creathon · The Truth in the Age of AI</p>
+          <h1>Media Manipulation Signal Analyzer</h1>
+        </div>
+      </div>
+      <div class="engine-switch" role="radiogroup" aria-label="Analysis engine">
+        <button type="button" class="seg active" role="radio" aria-checked="true" data-engine="heuristic">Offline heuristic</button>
+        <button type="button" class="seg" role="radio" aria-checked="false" data-engine="ai">AI-assisted <span class="opt">optional</span></button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero wrap" aria-label="Introduction">
+    <div class="story" aria-label="Why this matters">
+      <p class="story-lead">Would you believe everything you see on the internet?</p>
+      <ol class="story-beats">
+        <li><span>One photo.</span></li>
+        <li><span>One headline.</span></li>
+        <li><span>One false story.</span></li>
+      </ol>
+      <p class="story-sub">In just a few seconds, fake news can spread to thousands of people and make them believe something that never happened. AI can now create realistic images, videos and texts that are hard to tell apart from reality. So how can we tell what is real and what is fake? Let's find out.</p>
+    </div>
+    <p class="hero-q">What potential manipulation signals can we observe in this content?</p>
+    <p class="hero-sub">Paste a news article, viral post, caption, speech or transcript. The analyzer checks it against the 20 indicators of the <strong>PSYOPS Identification Tool V8.3</strong> and shows its evidence. <span class="tagline">Think before you share.</span></p>
+  </section>
+
+  <main id="workspace" class="wrap">
+    <!-- ============ INPUT ============ -->
+    <section class="panel input-panel" id="inputPanel" aria-labelledby="inputTitle">
+      <div class="panel-head">
+        <h2 id="inputTitle">1 · Input workspace</h2>
+        <span class="hint">Text and context notes only — nothing is fetched or uploaded.</span>
+      </div>
+
+      <div class="presets" id="presets" aria-label="Educational presets"></div>
+
+      <div class="field">
+        <label for="textInput">Text to analyze</label>
+        <textarea id="textInput" rows="9" maxlength="20000" spellcheck="false" placeholder="Paste a news article, viral X/Twitter post, caption, speech or video transcript…"></textarea>
+        <div class="counters"><span id="wordCount">0 words</span><span id="charCount">0 / 20,000 characters</span></div>
+      </div>
+
+      <details class="meta-box" id="metaBox" open>
+        <summary>Optional context &amp; report header</summary>
+        <div class="meta-grid">
+          <div class="field">
+            <label for="metaSource">Source / post author &amp; title</label>
+            <input id="metaSource" type="text" maxlength="300" autocomplete="off" placeholder="e.g. Matt Wallace (@MattWallace888) — Viral WWIII Alert Post">
+          </div>
+          <div class="field">
+            <label for="metaPlatform">Platform / medium</label>
+            <input id="metaPlatform" type="text" maxlength="100" list="platformList" autocomplete="off" placeholder="e.g. X/Twitter">
+            <datalist id="platformList">
+              <option value="X/Twitter"></option><option value="TikTok"></option><option value="Instagram"></option>
+              <option value="Facebook"></option><option value="YouTube"></option><option value="News Outlet"></option><option value="Speech"></option>
+            </datalist>
+          </div>
+          <div class="field">
+            <label for="metaDate">Reference URL or date <span class="muted">(display label only)</span></label>
+            <input id="metaDate" type="text" maxlength="200" autocomplete="off" placeholder="e.g. April 13, 2024">
+          </div>
+          <div class="field span-2">
+            <label for="metaNotes">Virality &amp; verification notes</label>
+            <textarea id="metaNotes" rows="2" maxlength="4000" placeholder="e.g. 13M views in 1 day; 22M+ total views. Known fact-checks or context…"></textarea>
+          </div>
+        </div>
+      </details>
+
+      <div class="ai-box" id="aiBox" hidden>
+        <p class="ai-note"><strong>AI-assisted mode (optional).</strong> Uses your own Anthropic API key, sent directly from this browser to the Claude API. The key stays in memory for this tab only and is never saved. Results are validated against the same rules as the offline engine; if the call fails, the offline engine is used.</p>
+        <div class="meta-grid">
+          <div class="field">
+            <label for="aiKey">Anthropic API key</label>
+            <input id="aiKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+          </div>
+          <div class="field">
+            <label for="aiModel">Model</label>
+            <input id="aiModel" type="text" autocomplete="off" spellcheck="false" value="claude-opus-5-5">
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn primary" id="analyzeBtn">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+          Analyze Signals
+        </button>
+        <button type="button" class="btn toggle" id="compareBtn" aria-pressed="false">Compare Presets</button>
+        <button type="button" class="btn ghost" id="clearBtn">Clear / Reset</button>
+      </div>
+    </section>
+
+    <!-- ============ COMPARE ============ -->
+    <section class="panel compare-panel" id="comparePanel" hidden aria-labelledby="compareTitle">
+      <div class="panel-head">
+        <h2 id="compareTitle">Compare two analyses</h2>
+        <span class="hint">Contrast the Signal Intensity Index and the 20-indicator profile side by side.</span>
+      </div>
+      <div class="compare-grid">
+        <div class="compare-col" id="compareA">
+          <label class="compare-pick">Left <select id="compareSelA"></select></label>
+          <div class="compare-body"></div>
+        </div>
+        <div class="compare-col" id="compareB">
+          <label class="compare-pick">Right <select id="compareSelB"></select></label>
+          <div class="compare-body"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ RESULTS ============ -->
+    <section id="results" class="results" hidden aria-live="polite" aria-labelledby="reportTitle">
+      <div class="panel report-head">
+        <div class="report-title-row">
+          <div>
+            <p class="eyebrow">Signal analysis report</p>
+            <h2 id="reportTitle">Untitled content</h2>
+            <p class="report-meta" id="reportMeta"></p>
+          </div>
+          <div class="report-actions">
+            <button type="button" class="btn small" id="copyBtn">Copy Structured Report</button>
+            <button type="button" class="btn small" id="printBtn">Print / Save as PDF</button>
+          </div>
+        </div>
+        <p class="disclaimer" data-disclaimer></p>
+      </div>
+
+      <!-- A. Gauge + KPIs -->
+      <div class="grid-a">
+        <div class="panel gauge-panel">
+          <h3 class="card-title">Signal Intensity Index</h3>
+          <div id="gauge" class="gauge"></div>
+          <p class="method-notice" data-method></p>
+          <p class="coverage" id="coverage"></p>
+        </div>
+        <div class="kpis" id="kpis"></div>
+      </div>
+
+      <div class="panel interpretation" id="interpretation">
+        <p class="interp-q">What potential manipulation signals can we observe in this content?</p>
+        <p class="interp-a" id="interpText"></p>
+      </div>
+
+      <!-- B + C -->
+      <div class="grid-bc">
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="card-title">Annotated source text</h3>
+            <span class="hint">Click a highlight to open its finding.</span>
+          </div>
+          <div class="annotated" id="annotated" tabindex="0"></div>
+          <div class="legend" id="hlLegend"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="card-title">20-indicator profile</h3>
+          </div>
+          <div class="chart-controls">
+            <div class="seg-group" role="group" aria-label="Sort">
+              <button type="button" class="seg active" data-sort="order">Checklist order</button>
+              <button type="button" class="seg" data-sort="score">Highest signal</button>
+            </div>
+            <div class="seg-group" role="group" aria-label="Filter">
+              <button type="button" class="seg active" data-filter="all">All</button>
+              <button type="button" class="seg" data-filter="observed">Observed (2–5)</button>
+              <button type="button" class="seg" data-filter="not">Not observed (1)</button>
+              <button type="button" class="seg" data-filter="na">Cannot assess</button>
+            </div>
+          </div>
+          <div class="bars" id="bars" role="list"></div>
+        </div>
+      </div>
+
+      <!-- D -->
+      <div class="grid-d">
+        <div class="panel">
+          <h3 class="card-title">Signal distribution</h3>
+          <div class="dist" id="dist"></div>
+        </div>
+        <div class="panel">
+          <h3 class="card-title">Questions to ask next</h3>
+          <ol class="questions" id="questions"></ol>
+        </div>
+      </div>
+
+      <!-- E -->
+      <div class="panel">
+        <div class="panel-head">
+          <h3 class="card-title">Detailed findings</h3>
+          <div class="seg-group">
+            <button type="button" class="seg" id="expandAll">Expand all</button>
+            <button type="button" class="seg" id="collapseAll">Collapse all</button>
+          </div>
+        </div>
+        <div class="cards" id="cards"></div>
+      </div>
+
+      <div class="panel sheet" id="sheetPanel">
+        <div class="panel-head">
+          <div>
+            <h3 class="card-title">PSYOPS Identification Tool V8.3 · scoring checklist</h3>
+            <p class="hint sheet-hint">The original worksheet, prefilled with the analyzer's scores. Change any row after class discussion; the total updates as you go.</p>
+          </div>
+          <button type="button" class="btn small" id="sheetReset">Reset to analyzer scores</button>
+        </div>
+        <div class="sheet-table" id="sheetTable" role="table" aria-label="PSYOPS Identification Tool V8.3 scoring checklist"></div>
+        <div class="sheet-total" id="sheetTotal"></div>
+      </div>
+
+      <div class="panel missing" id="missingPanel">
+        <h3 class="card-title">Missing context &amp; external verification needed</h3>
+        <p class="hint">These indicators cannot be judged from the text alone. Here is how a researcher would investigate them.</p>
+        <div id="missingList" class="missing-list"></div>
+      </div>
+
+      <!-- F -->
+      <div class="panel verify" id="verifyPanel">
+        <div class="panel-head">
+          <h3 class="card-title">Before you share: 3-step verification checklist</h3>
+          <span class="verify-progress" id="verifyProgress">0 / 3 checked</span>
+        </div>
+        <div class="verify-steps" id="verifySteps"></div>
+        <div class="verify-reveal" id="verifyReveal" hidden></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <div class="closing">
+        <p class="closing-h">Think before you share.</p>
+        <p>Fake news can cause fear, confusion, wrong decisions, and damage people's reputations. Check reliable sources, think critically, and verify information before sharing it. By using AI responsibly and spreading only trustworthy information, we can reduce fake news and create a safer digital world.</p>
+      </div>
+      <p class="disclaimer" data-disclaimer></p>
+      <p class="foot-small">Framework: PSYOPS Identification Tool V8.3 (20 indicators). Built for the Creathon workshop “The Truth in the Age of AI”. Runs entirely in your browser.</p>
+    </div>
+  </footer>
+
+  <!-- Scanning overlay -->
+  <div class="scan" id="scan" hidden role="status" aria-live="assertive">
+    <div class="scan-card">
+      <div class="scan-radar" aria-hidden="true"><span></span></div>
+      <p class="scan-title">Scanning for signals…</p>
+      <ol class="scan-stages" id="scanStages"></ol>
+      <div class="scan-bar"><span id="scanBar"></span></div>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="js/framework.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/presets.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
