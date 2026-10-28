@@ -68,6 +68,7 @@
     state.file = file;
     state.url = URL.createObjectURL(file);
     state.frames = [];
+    state.metaFound = null;
     clear($("frames"));
     clear($("aiFrameOut"));
     $("labMain").hidden = false;
@@ -76,6 +77,7 @@
     $("framesHint").textContent = "Extracting key frames…";
     player.src = state.url;
     renderInfo();
+    scanMetadata(file);
     player.onloadedmetadata = function () {
       renderInfo();
       extractFrames().catch(function () {
@@ -116,6 +118,101 @@
     }
     rows.forEach(function (r) { el.appendChild(h("dt", { text: r[0] })); el.appendChild(h("dd", { text: r[1] })); });
     el.appendChild(h("p", { class: "info-note", text: "The device date shows when this copy was saved or downloaded, not when the footage was filmed. Re-shared videos lose their original details, which is why reverse search matters." }));
+  }
+
+  // ---------- metadata scan ----------
+  // Searches the start and end of the file (where MP4/MOV/WebM keep their metadata) for traces
+  // left by AI video generators, 3D software, content-credential labels, editors and cameras.
+  var SCAN_BYTES = 4 * 1024 * 1024;
+  var MARKERS = [
+    { cat: "ai", label: "OpenAI / Sora", re: /\bsora\b|openai/i },
+    { cat: "ai", label: "Google Veo / SynthID", re: /\bveo ?[23]?\b|synthid|google deepmind/i },
+    { cat: "ai", label: "Runway", re: /runway ?(ml|gen)/i },
+    { cat: "ai", label: "Kling", re: /\bkling\b|kuaishou/i },
+    { cat: "ai", label: "Pika", re: /pika ?(labs|art)/i },
+    { cat: "ai", label: "Luma Dream Machine", re: /luma ?ai|dream ?machine/i },
+    { cat: "ai", label: "Stable Video / Stability AI", re: /stable ?video|stability ?ai/i },
+    { cat: "ai", label: "Midjourney", re: /midjourney/i },
+    { cat: "ai", label: "AI avatar tool (HeyGen / Synthesia)", re: /heygen|synthesia/i },
+    { cat: "ai", label: "Hailuo / MiniMax", re: /hailuo|minimax/i },
+    { cat: "cgi", label: "Blender", re: /blender/i },
+    { cat: "cgi", label: "Unreal Engine", re: /unreal ?engine/i },
+    { cat: "cgi", label: "Unity", re: /unity ?technologies|unity ?engine/i },
+    { cat: "cgi", label: "Cinema 4D / Maya / Houdini", re: /cinema ?4d|autodesk maya|houdini/i },
+    { cat: "label", label: "Content Credentials (C2PA)", re: /c2pa|jumbf|contentcredentials|content credentials/i },
+    { cat: "label", label: "“AI-generated” label (IPTC trainedAlgorithmicMedia)", re: /trainedalgorithmicmedia|compositesynthetic|algorithmicmedia/i },
+    { cat: "edit", label: "Re-encoded with FFmpeg (Lavf)", re: /lavf\d|lavc\d/i },
+    { cat: "edit", label: "Edited in CapCut", re: /capcut/i },
+    { cat: "edit", label: "Edited in Premiere / After Effects", re: /premiere pro|after effects|adobe/i },
+    { cat: "edit", label: "Converted with HandBrake", re: /handbrake/i },
+    { cat: "camera", label: "Apple iPhone camera tags", re: /com\.apple\.quicktime\.(make|model)|iphone/i },
+    { cat: "camera", label: "Samsung / Android camera tags", re: /samsung|sm-[gsan]\d{3}|android/i },
+    { cat: "camera", label: "GoPro / DJI drone", re: /gopro|\bdji\b/i },
+    { cat: "camera", label: "GPS location tag", re: /com\.apple\.quicktime\.location|©xyz/i }
+  ];
+  var CATS = {
+    ai: { name: "AI generator trace", cls: "m-ai", meaning: "A tool that generates video with AI left its name in the file." },
+    cgi: { name: "3D / CGI software", cls: "m-cgi", meaning: "3D rendering software left its name in the file, like the Blender WWIII clip." },
+    label: { name: "Content label", cls: "m-label", meaning: "The file carries a provenance or AI-content label. Check it with a Content Credentials viewer." },
+    edit: { name: "Editing / re-encoding", cls: "m-edit", meaning: "The file was processed by editing or conversion software, so original details may be gone." },
+    camera: { name: "Camera / device tag", cls: "m-camera", meaning: "Camera or phone tags are present. They support, but do not prove, real filming." }
+  };
+
+  function readText(file, start, end) {
+    var blob = file.slice(start, end);
+    var p = blob.arrayBuffer ? blob.arrayBuffer() : new Promise(function (res, rej) {
+      var fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = rej; fr.readAsArrayBuffer(blob);
+    });
+    return p.then(function (buf) {
+      var bytes = new Uint8Array(buf), out = "";
+      for (var i = 0; i < bytes.length; i += 32768) out += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+      return out;
+    });
+  }
+
+  function scanMetadata(file) {
+    var el = $("metaScan");
+    clear(el).appendChild(h("p", { class: "muted note", text: "Scanning file metadata for AI, 3D software and camera traces…" }));
+    var parts = [readText(file, 0, Math.min(file.size, SCAN_BYTES))];
+    if (file.size > SCAN_BYTES) parts.push(readText(file, Math.max(SCAN_BYTES, file.size - SCAN_BYTES), file.size));
+    Promise.all(parts).then(function (texts) {
+      if (state.file !== file) return;
+      var blob = texts.join("\n");
+      var found = MARKERS.filter(function (m) { return m.re.test(blob); });
+      state.metaFound = found;
+      renderScan(found);
+    }).catch(function () {
+      if (state.file === file) clear(el).appendChild(h("p", { class: "lab-error", text: "Could not read the file's metadata." }));
+    });
+  }
+
+  function renderScan(found) {
+    var el = clear($("metaScan"));
+    el.appendChild(h("p", { class: "st-k", text: "Metadata scan" }));
+    if (!found.length) {
+      el.appendChild(h("p", { class: "scan-none", text: "No AI-tool, 3D-software or camera traces found in the file's metadata." }));
+    } else {
+      var order = ["ai", "cgi", "label", "edit", "camera"];
+      order.forEach(function (c) {
+        var items = found.filter(function (m) { return m.cat === c; });
+        if (!items.length) return;
+        el.appendChild(h("div", { class: "scan-cat " + CATS[c].cls }, [
+          h("p", { class: "scan-cat-h" }, [h("span", { class: "scan-pill", text: CATS[c].name })].concat(items.map(function (m) { return h("b", { text: m.label }); }))),
+          h("p", { class: "scan-mean", text: CATS[c].meaning })
+        ]));
+      });
+      var tool = found.some(function (m) { return m.cat === "ai" || m.cat === "cgi"; });
+      if (tool) {
+        var btn = h("button", { type: "button", class: "btn small accent", text: "Mark checklist question 11 as “Yes”" });
+        btn.addEventListener("click", function () {
+          state.answers.tool = "yes";
+          renderSigns();
+          $("cgiPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+        el.appendChild(btn);
+      }
+    }
+    el.appendChild(h("p", { class: "info-note", text: "Metadata is easy to strip or fake, and social media apps usually remove it. A trace is a strong clue; finding nothing proves nothing." }));
   }
 
   // ---------- frame extraction ----------
@@ -292,6 +389,11 @@
     if (state.file) {
       L.push("- **File:** " + state.file.name + " (" + fmtBytes(state.file.size) + ")");
       if (player.videoWidth) L.push("- **Resolution / duration:** " + player.videoWidth + "×" + player.videoHeight + ", " + fmtTime(player.duration));
+      L.push("");
+    }
+    if (state.metaFound) {
+      L.push("## Metadata scan", "");
+      L.push(state.metaFound.length ? state.metaFound.map(function (m) { return "- " + CATS[m.cat].name + ": " + m.label; }).join("\n") : "- No AI-tool, 3D-software or camera traces found.");
       L.push("");
     }
     L.push("## Warning-sign checklist", "");
